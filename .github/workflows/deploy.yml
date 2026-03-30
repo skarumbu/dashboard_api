@@ -16,8 +16,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install --target=".python_packages/lib/site-packages" -r requirements.txt
+      - name: Install Azure Functions Core Tools
+        run: |
+          npm install -g azure-functions-core-tools@4 --unsafe-perm true
 
       - name: Log in to Azure
         uses: azure/login@v2
@@ -25,9 +26,5 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Azure Functions
-        uses: Azure/functions-action@v1
-        with:
-          app-name: ${{ secrets.DASHBOARD_API_APP_NAME }}
-          package: .
-          scm-do-build-during-deployment: true
-          enable-oryx-build: true
+        run: |
+          func azure functionapp publish ${{ secrets.DASHBOARD_API_APP_NAME }} --python
