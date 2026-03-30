@@ -25,6 +25,13 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Clear WEBSITE_RUN_FROM_PACKAGE
+        run: |
+          az functionapp config appsettings delete \
+            --name ${{ secrets.DASHBOARD_API_APP_NAME }} \
+            --resource-group my-website-prod-rg \
+            --setting-names WEBSITE_RUN_FROM_PACKAGE WEBSITE_CONTENTAZUREFILECONNECTIONSTRING WEBSITE_CONTENTSHARE
+
       - name: Deploy to Azure Functions
         run: |
           func azure functionapp publish ${{ secrets.DASHBOARD_API_APP_NAME }} --python
