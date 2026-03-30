@@ -3,7 +3,7 @@ name: Deploy Dashboard API to Azure Functions
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   deploy:
