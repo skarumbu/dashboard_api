@@ -35,3 +35,34 @@ jobs:
       - name: Deploy to Azure Functions
         run: |
           func azure functionapp publish ${{ secrets.DASHBOARD_API_APP_NAME }} --python
+
+  update-architecture:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout my-website
+        uses: actions/checkout@v4
+        with:
+          repository: skarumbu/my-website
+          token: ${{ secrets.MY_WEBSITE_DISPATCH_TOKEN }}
+
+      - name: Update deploy metadata
+        run: |
+          git pull origin main
+          DATE=$(date -u +%Y-%m-%d)
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          python3 -c "
+import json
+with open('src/architecture-metadata.json') as f:
+    meta = json.load(f)
+meta['dashboard-api'] = {'lastDeploy': '$DATE', 'commitSha': '$SHORT_SHA'}
+with open('src/architecture-metadata.json', 'w') as f:
+    json.dump(meta, f, indent=2)
+    f.write('\n')
+"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/architecture-metadata.json
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: update dashboard-api deploy metadata"
+          git push
