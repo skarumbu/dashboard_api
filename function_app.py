@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
@@ -12,13 +11,11 @@ from auth import require_auth, get_user_token
 from registry import list_apps, upsert_app, delete_app
 from discovery import discover_resources
 from health_checks import check_app_health
+from azure_metadata import get_subscription_id, get_resource_group
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 logger = logging.getLogger("dashboard-api")
-
-AZURE_SUBSCRIPTION_ID = os.environ.get("AZURE_SUBSCRIPTION_ID", "")
-AZURE_RESOURCE_GROUP = os.environ.get("AZURE_RESOURCE_GROUP", "")
 
 _cost_cache: dict = {}
 
@@ -29,15 +26,18 @@ def _get_cost() -> dict:
     if _cost_cache.get("fetched_at") and (now - _cost_cache["fetched_at"]) < timedelta(hours=1):
         return _cost_cache["data"]
 
-    if not AZURE_SUBSCRIPTION_ID or not AZURE_RESOURCE_GROUP:
+    subscription_id = get_subscription_id()
+    resource_group = get_resource_group()
+
+    if not subscription_id or not resource_group:
         return {"error": "Not configured"}
 
     try:
         credential = ManagedIdentityCredential()
         token = credential.get_token("https://management.azure.com/.default").token
         url = (
-            f"https://management.azure.com/subscriptions/{AZURE_SUBSCRIPTION_ID}"
-            f"/resourceGroups/{AZURE_RESOURCE_GROUP}"
+            f"https://management.azure.com/subscriptions/{subscription_id}"
+            f"/resourceGroups/{resource_group}"
             f"/providers/Microsoft.CostManagement/query?api-version=2023-11-01"
         )
         body = {

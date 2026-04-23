@@ -5,10 +5,10 @@ import requests
 from azure.identity import OnBehalfOfCredential
 
 from registry import get_app
+from azure_metadata import get_tenant_id
 
 logger = logging.getLogger("dashboard-api.discovery")
 
-AZURE_TENANT_ID = os.environ.get("AZURE_TENANT_ID", "")
 AZURE_CLIENT_ID = os.environ.get("AZURE_CLIENT_ID", "")
 AZURE_CLIENT_SECRET = os.environ.get("AZURE_CLIENT_SECRET", "")
 
@@ -24,11 +24,12 @@ RESOURCE_GRAPH_URL = "https://management.azure.com/providers/Microsoft.ResourceG
 
 
 def discover_resources(user_token: str) -> list[dict]:
-    if not all([AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET]):
-        raise RuntimeError("OBO credentials not configured (AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET)")
+    tenant_id = get_tenant_id()
+    if not all([tenant_id, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET]):
+        raise RuntimeError("OBO credentials not configured (AZURE_TENANT_ID or IMDS, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET)")
 
     credential = OnBehalfOfCredential(
-        tenant_id=AZURE_TENANT_ID,
+        tenant_id=tenant_id,
         client_id=AZURE_CLIENT_ID,
         client_secret=AZURE_CLIENT_SECRET,
         user_assertion=user_token,
