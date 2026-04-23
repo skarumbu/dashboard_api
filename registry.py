@@ -10,7 +10,7 @@ logger = logging.getLogger("dashboard-api.registry")
 
 REGISTRY_TABLE_CONNECTION_STRING = os.environ.get("REGISTRY_TABLE_CONNECTION_STRING", "")
 TABLE_NAME = "registeredapps"
-VALID_TYPES = {"ContainerApp", "FunctionApp", "APIM", "custom"}
+VALID_TYPES = {"ContainerApp", "FunctionApp", "APIM", "StaticWebApp", "ContainerAppJob", "custom"}
 
 
 def _get_table_client():

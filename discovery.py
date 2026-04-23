@@ -16,6 +16,8 @@ MONITORED_TYPES = {
     "microsoft.web/sites",
     "microsoft.app/containerapps",
     "microsoft.apimanagement/service",
+    "microsoft.web/staticsites",
+    "microsoft.app/jobs",
 }
 
 RESOURCE_GRAPH_URL = "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01"
