@@ -143,6 +143,74 @@ def query_digits_metrics() -> tuple[list, list]:
         return [], []
 
 
+def query_log_analytics_function_app(service_name: str, workspace_id: str, window_hours: int = 24) -> tuple[list, list]:
+    """Returns (metrics_rows, error_rows) for a Function App via AppRequests/AppExceptions tables.
+
+    Requires the Function App to have Application Insights connected to the same workspace.
+    Cloud_RoleName must match the registered app name.
+    """
+    if not workspace_id:
+        return [], []
+    try:
+        credential = ManagedIdentityCredential()
+        client = LogsQueryClient(credential)
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(hours=window_hours)
+
+        metrics_query = """
+AppRequests
+| where TimeGenerated between (datetime({start}) .. datetime({end}))
+| where Cloud_RoleName =~ "{service}"
+| summarize
+    request_count = count(),
+    avg_latency_ms = round(avg(DurationMs), 1),
+    errors = countif(toint(ResultCode) >= 500)
+  by endpoint = Name
+| order by request_count desc
+""".format(start=start.isoformat(), end=end.isoformat(), service=service_name)
+
+        errors_query = """
+AppExceptions
+| where TimeGenerated between (datetime({start}) .. datetime({end}))
+| where Cloud_RoleName =~ "{service}"
+| project
+    timestamp = TimeGenerated,
+    endpoint = OperationName,
+    message = OuterMessage
+| order by timestamp desc
+| limit 20
+""".format(start=start.isoformat(), end=end.isoformat(), service=service_name)
+
+        timespan = timedelta(hours=window_hours)
+        m_result = client.query_workspace(workspace_id, metrics_query, timespan=timespan)
+        e_result = client.query_workspace(workspace_id, errors_query, timespan=timespan)
+
+        metrics_rows = []
+        if m_result.status == LogsQueryStatus.SUCCESS and m_result.tables:
+            for row in m_result.tables[0].rows:
+                metrics_rows.append({
+                    "endpoint": row[0],
+                    "requests_24h": int(row[1]),
+                    "avg_latency_ms": float(row[2]),
+                    "errors_24h": int(row[3]),
+                })
+
+        error_rows = []
+        if e_result.status == LogsQueryStatus.SUCCESS and e_result.tables:
+            for row in e_result.tables[0].rows:
+                error_rows.append({
+                    "timestamp": row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0]),
+                    "service": service_name,
+                    "endpoint": row[1],
+                    "message": row[2],
+                })
+
+        return metrics_rows, error_rows
+    except Exception as e:
+        logger.error(f"Log Analytics (AppRequests) query failed for {service_name}: {e}")
+        return [], []
+
+
 def check_app_health(app: dict) -> tuple[dict, list, list]:
     """
     Returns (health_status, metrics_rows, error_rows) for a registered app.
@@ -160,7 +228,10 @@ def check_app_health(app: dict) -> tuple[dict, list, list]:
     health = check_http_health(health_url)
 
     if workspace_id:
-        metrics, errors = query_log_analytics(name, workspace_id)
+        if app_type == "FunctionApp":
+            metrics, errors = query_log_analytics_function_app(name, workspace_id)
+        else:
+            metrics, errors = query_log_analytics(name, workspace_id)
     else:
         metrics, errors = [], []
 
