@@ -4,7 +4,7 @@ import os
 import requests
 from azure.identity import OnBehalfOfCredential
 
-from registry import get_app
+from registry import list_apps
 from azure_metadata import get_tenant_id
 
 logger = logging.getLogger("dashboard-api.discovery")
@@ -47,9 +47,11 @@ def discover_resources(user_token: str) -> list[dict]:
     )
     resp.raise_for_status()
 
+    registered_ids = {app["resource_id"].lower() for app in list_apps()}
+
     resources = []
     for item in resp.json().get("data", []):
-        already_registered = get_app(item.get("id", "")) is not None
+        already_registered = item.get("id", "").lower() in registered_ids
         resources.append({
             "id": item.get("id", ""),
             "name": item.get("name", ""),
