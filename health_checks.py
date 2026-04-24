@@ -16,7 +16,8 @@ DIGITS_METRICS_CONNECTION_STRING = os.environ.get("DIGITS_METRICS_CONNECTION_STR
 
 
 def check_http_health(health_url: str) -> dict:
-    if not health_url:
+    from urllib.parse import urlparse
+    if not health_url or not urlparse(health_url).hostname:
         return {"status": "unknown", "error": "health_url not configured"}
     try:
         start = time.time()
