@@ -85,11 +85,15 @@ Resources
     registered_ids = {app["resource_id"].lower() for app in registered_apps}
     registered_names = {app["name"].lower() for app in registered_apps}
 
+    def _matches_registered_name(resource_name: str) -> bool:
+        n = resource_name.lower()
+        return any(n == r or n.startswith(r + "-") or r.startswith(n + "-") for r in registered_names)
+
     resources = []
     for item in resp.json().get("data", []):
         already_registered = (
             item.get("id", "").lower() in registered_ids
-            or item.get("name", "").lower() in registered_names
+            or _matches_registered_name(item.get("name", ""))
         )
         resources.append({
             "id": item.get("id", ""),
