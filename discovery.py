@@ -41,18 +41,14 @@ def discover_resources(user_token: str) -> list[dict]:
 
     resp = requests.post(
         RESOURCE_GRAPH_URL,
-        json={"query": query},
+        json={"query": query, "options": {"resultFormat": "objectArray"}},
         headers={"Authorization": f"Bearer {arm_token}", "Content-Type": "application/json"},
         timeout=15,
     )
     resp.raise_for_status()
 
-    rows = resp.json().get("data", {}).get("rows", [])
-    columns = [c["name"] for c in resp.json().get("data", {}).get("columns", [])]
-
     resources = []
-    for row in rows:
-        item = dict(zip(columns, row))
+    for item in resp.json().get("data", []):
         already_registered = get_app(item.get("id", "")) is not None
         resources.append({
             "id": item.get("id", ""),
