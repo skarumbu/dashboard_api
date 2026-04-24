@@ -57,7 +57,6 @@ ContainerAppConsoleLogs_CL
 
         errors_query = """
 ContainerAppConsoleLogs_CL
-| where TimeGenerated between (datetime({start}) .. datetime({end}))
 | where Log_s has '"event": "error"'
 | extend parsed = parse_json(Log_s)
 | where tostring(parsed.service) == "{service}"
@@ -67,11 +66,11 @@ ContainerAppConsoleLogs_CL
     message = tostring(parsed.error)
 | order by timestamp desc
 | limit 20
-""".format(start=start.isoformat(), end=end.isoformat(), service=service_name)
+""".format(service=service_name)
 
         timespan = timedelta(hours=window_hours)
         m_result = client.query_workspace(workspace_id, metrics_query, timespan=timespan)
-        e_result = client.query_workspace(workspace_id, errors_query, timespan=timespan)
+        e_result = client.query_workspace(workspace_id, errors_query, timespan=timedelta(days=30))
 
         metrics_rows = []
         if m_result.status == LogsQueryStatus.SUCCESS and m_result.tables:
@@ -172,7 +171,6 @@ AppRequests
 
         errors_query = """
 AppExceptions
-| where TimeGenerated between (datetime({start}) .. datetime({end}))
 | where Cloud_RoleName =~ "{service}"
 | project
     timestamp = TimeGenerated,
@@ -180,11 +178,11 @@ AppExceptions
     message = OuterMessage
 | order by timestamp desc
 | limit 20
-""".format(start=start.isoformat(), end=end.isoformat(), service=service_name)
+""".format(service=service_name)
 
         timespan = timedelta(hours=window_hours)
         m_result = client.query_workspace(workspace_id, metrics_query, timespan=timespan)
-        e_result = client.query_workspace(workspace_id, errors_query, timespan=timespan)
+        e_result = client.query_workspace(workspace_id, errors_query, timespan=timedelta(days=30))
 
         metrics_rows = []
         if m_result.status == LogsQueryStatus.SUCCESS and m_result.tables:
