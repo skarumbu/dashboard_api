@@ -41,7 +41,7 @@ def discover_resources(user_token: str) -> list[dict]:
 Resources
 | where {type_filter}
 | extend lid = tolower(id)
-| extend envId = tolower(tostring(properties.managedEnvironmentId))
+| extend envId = tolower(tostring(iff(isnotempty(tostring(properties.managedEnvironmentId)), properties.managedEnvironmentId, properties.environmentId)))
 | join kind=leftouter (
     Resources
     | where type =~ "microsoft.app/managedenvironments"
