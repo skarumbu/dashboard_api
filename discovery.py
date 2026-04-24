@@ -37,7 +37,17 @@ def discover_resources(user_token: str) -> list[dict]:
     arm_token = credential.get_token("https://management.azure.com/.default").token
 
     type_filter = " or ".join(f'type =~ "{t}"' for t in MONITORED_TYPES)
-    query = f"Resources | where {type_filter} | project id, name, type, location, resourceGroup, subscriptionId | order by name asc"
+    query = f"""
+Resources
+| where {type_filter}
+| extend healthUrl = case(
+    type =~ "microsoft.app/containerapps", strcat("https://", tostring(properties.configuration.ingress.fqdn)),
+    type =~ "microsoft.web/sites",         strcat("https://", tostring(properties.defaultHostName)),
+    type =~ "microsoft.web/staticsites",   strcat("https://", tostring(properties.defaultHostname)),
+    "")
+| project id, name, type, location, resourceGroup, subscriptionId, healthUrl
+| order by name asc
+"""
 
     resp = requests.post(
         RESOURCE_GRAPH_URL,
@@ -59,6 +69,7 @@ def discover_resources(user_token: str) -> list[dict]:
             "location": item.get("location", ""),
             "resource_group": item.get("resourceGroup", ""),
             "subscription_id": item.get("subscriptionId", ""),
+            "health_url": item.get("healthUrl", ""),
             "already_registered": already_registered,
         })
     return resources
