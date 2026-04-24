@@ -57,11 +57,16 @@ Resources
     )
     resp.raise_for_status()
 
-    registered_ids = {app["resource_id"].lower() for app in list_apps()}
+    registered_apps = list_apps()
+    registered_ids = {app["resource_id"].lower() for app in registered_apps}
+    registered_names = {app["name"].lower() for app in registered_apps}
 
     resources = []
     for item in resp.json().get("data", []):
-        already_registered = item.get("id", "").lower() in registered_ids
+        already_registered = (
+            item.get("id", "").lower() in registered_ids
+            or item.get("name", "").lower() in registered_names
+        )
         resources.append({
             "id": item.get("id", ""),
             "name": item.get("name", ""),
