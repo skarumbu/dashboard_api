@@ -210,6 +210,67 @@ AppExceptions
         return [], []
 
 
+def check_job_health(resource_id: str, workspace_id: str) -> tuple[dict, list]:
+    """Returns (health_status, error_rows) for a Container App Job.
+
+    Health is derived from the most recent execution status.
+    Errors are plain-text logs from the most recent execution.
+    """
+    health = {"status": "unknown", "error": "No executions found"}
+    errors = []
+
+    if not resource_id:
+        return {"status": "unknown", "error": "resource_id not configured"}, []
+
+    try:
+        credential = ManagedIdentityCredential()
+        token = credential.get_token("https://management.azure.com/.default").token
+        url = f"https://management.azure.com{resource_id}/executions?api-version=2023-05-01&$top=1"
+        resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=15)
+        resp.raise_for_status()
+        executions = resp.json().get("value", [])
+        if executions:
+            latest = executions[0]
+            props = latest.get("properties", {})
+            raw_status = props.get("status", "unknown")
+            start_time = props.get("startTime", "")
+            health = {
+                "status": "up" if raw_status == "Succeeded" else "down" if raw_status == "Failed" else "unknown",
+                "last_run": start_time,
+                "last_run_status": raw_status,
+            }
+    except Exception as e:
+        logger.error(f"Job execution check failed for {resource_id}: {e}")
+        health = {"status": "unknown", "error": str(e)}
+
+    if workspace_id:
+        try:
+            credential = ManagedIdentityCredential()
+            client = LogsQueryClient(credential)
+            job_name = resource_id.rstrip("/").split("/")[-1]
+            errors_query = """
+ContainerAppConsoleLogs_CL
+| where ContainerAppName_s =~ "{job}"
+| where Log_s has_any ("error", "Error", "ERROR", "exception", "Exception", "failed", "Failed")
+| project timestamp = TimeGenerated, endpoint = "", message = Log_s
+| order by timestamp desc
+| limit 20
+""".format(job=job_name)
+            result = client.query_workspace(workspace_id, errors_query, timespan=timedelta(days=30))
+            if result.status == LogsQueryStatus.SUCCESS and result.tables:
+                for row in result.tables[0].rows:
+                    errors.append({
+                        "timestamp": row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0]),
+                        "service": job_name,
+                        "endpoint": row[1],
+                        "message": row[2],
+                    })
+        except Exception as e:
+            logger.error(f"Job log query failed for {resource_id}: {e}")
+
+    return health, errors
+
+
 def check_app_health(app: dict) -> tuple[dict, list, list]:
     """
     Returns (health_status, metrics_rows, error_rows) for a registered app.
@@ -223,6 +284,11 @@ def check_app_health(app: dict) -> tuple[dict, list, list]:
     if app_type == "custom" and name == "digits":
         metrics, errors = query_digits_metrics()
         return {"status": "up"}, metrics, errors
+
+    if app_type == "ContainerAppJob":
+        resource_id = app.get("resource_id", "")
+        health, errors = check_job_health(resource_id, workspace_id)
+        return health, [], errors
 
     health = check_http_health(health_url)
 
