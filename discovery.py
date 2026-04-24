@@ -42,26 +42,25 @@ let caEnvWs = Resources
 | where type =~ "microsoft.app/managedenvironments"
 | project envId = tolower(id),
           caWsGuid = tostring(properties.appLogsConfiguration.logAnalyticsConfiguration.customerId);
-let diagWs = Resources
+let wsGuids = Resources
+| where type =~ "microsoft.operationalinsights/workspaces"
+| project wsArmId = tolower(id), wsGuid = tostring(properties.customerId);
+let diagSettings = Resources
 | where type =~ "microsoft.insights/diagnosticsettings"
 | extend parentId = tolower(tostring(split(id, "/providers/microsoft.insights/diagnosticsettings/")[0]))
-| extend wsResourceId = tolower(tostring(properties.workspaceId))
-| where isnotempty(wsResourceId)
-| join kind=inner (
-    Resources
-    | where type =~ "microsoft.operationalinsights/workspaces"
-    | project wsResourceId = tolower(id), diagWsGuid = tostring(properties.customerId)
-  ) on wsResourceId
-| summarize diagWsGuid = any(diagWsGuid) by parentId;
+| extend wsArmId = tolower(tostring(properties.workspaceId))
+| where isnotempty(wsArmId)
+| summarize wsArmId = any(wsArmId) by parentId;
 Resources
 | where {type_filter}
 | extend lid = tolower(id)
 | extend envId = tolower(tostring(properties.managedEnvironmentId))
 | join kind=leftouter caEnvWs on $left.envId == $right.envId
-| join kind=leftouter diagWs on $left.lid == $right.parentId
+| join kind=leftouter diagSettings on $left.lid == $right.parentId
+| join kind=leftouter wsGuids on $left.wsArmId == $right.wsArmId
 | extend logWorkspaceId = case(
-    type =~ "microsoft.app/containerapps", iff(isnotempty(caWsGuid), caWsGuid, diagWsGuid),
-    iff(isnotempty(diagWsGuid), diagWsGuid, caWsGuid))
+    type =~ "microsoft.app/containerapps", iff(isnotempty(caWsGuid), caWsGuid, wsGuid),
+    iff(isnotempty(wsGuid), wsGuid, caWsGuid))
 | extend healthUrl = case(
     type =~ "microsoft.app/containerapps", strcat("https://", tostring(properties.configuration.ingress.fqdn)),
     type =~ "microsoft.web/sites",         strcat("https://", tostring(properties.defaultHostName)),
