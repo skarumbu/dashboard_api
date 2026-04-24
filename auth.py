@@ -18,8 +18,15 @@ def require_auth(req: func.HttpRequest) -> tuple[str, str, str]:
 
 
 def get_user_token(req: func.HttpRequest) -> str:
-    """Extract the user's ARM-scoped access token injected by EasyAuth token store."""
+    """Extract the user's access token for OBO.
+
+    Prefers the EasyAuth token store header; falls back to the Authorization
+    bearer token sent by the MSAL frontend, which is a valid OBO assertion.
+    """
     token = req.headers.get("X-MS-TOKEN-AAD-ACCESS-TOKEN", "")
-    if not token:
-        raise ValueError("User token unavailable — ensure EasyAuth token store is enabled")
-    return token
+    if token:
+        return token
+    auth_header = req.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        return auth_header[7:]
+    raise ValueError("User token unavailable — no EasyAuth token store header or Authorization bearer token found")
