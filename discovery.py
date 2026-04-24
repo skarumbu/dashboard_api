@@ -38,14 +38,36 @@ def discover_resources(user_token: str) -> list[dict]:
 
     type_filter = " or ".join(f'type =~ "{t}"' for t in MONITORED_TYPES)
     query = f"""
+let caEnvWs = Resources
+| where type =~ "microsoft.app/managedenvironments"
+| project envId = tolower(id),
+          caWsGuid = tostring(properties.appLogsConfiguration.logAnalyticsConfiguration.customerId);
+let diagWs = Resources
+| where type =~ "microsoft.insights/diagnosticsettings"
+| extend parentId = tolower(tostring(split(id, "/providers/microsoft.insights/diagnosticsettings/")[0]))
+| extend wsResourceId = tolower(tostring(properties.workspaceId))
+| where isnotempty(wsResourceId)
+| join kind=inner (
+    Resources
+    | where type =~ "microsoft.operationalinsights/workspaces"
+    | project wsResourceId = tolower(id), diagWsGuid = tostring(properties.customerId)
+  ) on wsResourceId
+| summarize diagWsGuid = any(diagWsGuid) by parentId;
 Resources
 | where {type_filter}
+| extend lid = tolower(id)
+| extend envId = tolower(tostring(properties.managedEnvironmentId))
+| join kind=leftouter caEnvWs on $left.envId == $right.envId
+| join kind=leftouter diagWs on $left.lid == $right.parentId
+| extend logWorkspaceId = case(
+    type =~ "microsoft.app/containerapps", iff(isnotempty(caWsGuid), caWsGuid, diagWsGuid),
+    iff(isnotempty(diagWsGuid), diagWsGuid, caWsGuid))
 | extend healthUrl = case(
     type =~ "microsoft.app/containerapps", strcat("https://", tostring(properties.configuration.ingress.fqdn)),
     type =~ "microsoft.web/sites",         strcat("https://", tostring(properties.defaultHostName)),
     type =~ "microsoft.web/staticsites",   strcat("https://", tostring(properties.defaultHostname)),
     "")
-| project id, name, type, location, resourceGroup, subscriptionId, healthUrl
+| project id, name, type, location, resourceGroup, subscriptionId, healthUrl, logWorkspaceId
 | order by name asc
 """
 
@@ -75,6 +97,7 @@ Resources
             "resource_group": item.get("resourceGroup", ""),
             "subscription_id": item.get("subscriptionId", ""),
             "health_url": item.get("healthUrl", ""),
+            "log_workspace_id": item.get("logWorkspaceId", ""),
             "already_registered": already_registered,
         })
     return resources
