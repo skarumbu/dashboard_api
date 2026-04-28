@@ -239,6 +239,13 @@ def check_job_health(resource_id: str, workspace_id: str) -> tuple[dict, list]:
                 "last_run": start_time,
                 "last_run_status": raw_status,
             }
+            if raw_status == "Failed":
+                errors.append({
+                    "timestamp": start_time,
+                    "service": resource_id.rstrip("/").split("/")[-1],
+                    "endpoint": "",
+                    "message": f"Job execution failed (status: {raw_status}). Check Log Analytics or Azure Portal for details.",
+                })
     except Exception as e:
         logger.error(f"Job execution check failed for {resource_id}: {e}")
         health = {"status": "unknown", "error": str(e)}
@@ -250,7 +257,7 @@ def check_job_health(resource_id: str, workspace_id: str) -> tuple[dict, list]:
             job_name = resource_id.rstrip("/").split("/")[-1]
             errors_query = """
 ContainerAppConsoleLogs_CL
-| where ContainerAppName_s =~ "{job}"
+| where ContainerAppName_s startswith "{job}"
 | where Log_s has_any ("error", "Error", "ERROR", "exception", "Exception", "failed", "Failed")
 | project timestamp = TimeGenerated, endpoint = "", message = Log_s
 | order by timestamp desc

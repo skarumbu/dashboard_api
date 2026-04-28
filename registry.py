@@ -83,6 +83,30 @@ def upsert_app(data: dict, added_by: str = "") -> dict:
     return _entity_to_dict(entity)
 
 
+UPDATABLE_FIELDS = {"health_url", "log_workspace_id", "type", "enabled"}
+
+
+def update_app(name: str, updates: dict) -> dict | None:
+    unknown = set(updates) - UPDATABLE_FIELDS
+    if unknown:
+        raise ValueError(f"Unknown fields: {', '.join(sorted(unknown))}. Updatable: {', '.join(sorted(UPDATABLE_FIELDS))}")
+    try:
+        client = _get_table_client()
+        entities = list(client.query_entities(f"PartitionKey eq 'apps' and name eq '{name}'"))
+        if not entities:
+            return None
+        entity = entities[0]
+        for k, v in updates.items():
+            entity[k] = v
+        client.update_entity(entity)
+        return _entity_to_dict(entity)
+    except ValueError:
+        raise
+    except Exception as exc:
+        logger.error(f"registry update_app failed: {exc}")
+        raise
+
+
 def delete_app(name: str) -> bool:
     try:
         client = _get_table_client()

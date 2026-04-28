@@ -8,7 +8,7 @@ import azure.functions as func
 from azure.identity import ManagedIdentityCredential
 
 from auth import require_auth, get_user_token
-from registry import list_apps, upsert_app, delete_app
+from registry import list_apps, upsert_app, update_app, delete_app
 from discovery import discover_resources
 from health_checks import check_app_health
 from azure_metadata import get_subscription_id, get_resource_group
@@ -182,6 +182,36 @@ def register_app(req: func.HttpRequest) -> func.HttpResponse:
         return _json_response({"error": "Failed to register app"}, status_code=500)
 
     return _json_response(entity, status_code=201)
+
+
+@app.route(route="apps/{name}", methods=["PATCH"])
+def patch_app(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        require_auth(req)
+    except ValueError:
+        return _unauthorized()
+
+    name = req.route_params.get("name", "")
+    if not name:
+        return _json_response({"error": "App name required"}, status_code=400)
+
+    try:
+        body = req.get_json()
+    except Exception:
+        return _json_response({"error": "Invalid JSON body"}, status_code=400)
+
+    try:
+        updated = update_app(name, body)
+    except ValueError as e:
+        return _json_response({"error": str(e)}, status_code=400)
+    except Exception as e:
+        logger.error(f"patch_app failed: {e}")
+        return _json_response({"error": "Failed to update app"}, status_code=500)
+
+    if updated is None:
+        return _json_response({"error": "App not found"}, status_code=404)
+
+    return _json_response(updated)
 
 
 @app.route(route="apps/{name}", methods=["DELETE"])
