@@ -210,6 +210,52 @@ AppExceptions
         return [], []
 
 
+def _fetch_execution_logs(arm_token: str, resource_id: str, execution_name: str) -> str | None:
+    """Fetch the tail of a Container App Job execution's console output via the log-stream API.
+
+    Works for fast-failing containers that exit before logs reach Log Analytics.
+    Returns the most relevant error lines joined into one string, or None on failure.
+    """
+    if not execution_name:
+        return None
+    try:
+        auth_url = (
+            f"https://management.azure.com{resource_id}"
+            f"/executions/{execution_name}/getAuthToken?api-version=2024-03-01"
+        )
+        auth_resp = requests.post(
+            auth_url,
+            headers={"Authorization": f"Bearer {arm_token}"},
+            timeout=10,
+        )
+        if not auth_resp.ok:
+            return None
+        auth_data = auth_resp.json()
+        log_endpoint = auth_data.get("logStreamEndpoint", "")
+        log_token = auth_data.get("token", "")
+        if not log_endpoint or not log_token:
+            return None
+
+        log_resp = requests.get(
+            f"{log_endpoint}?follow=false&tailLines=50",
+            headers={"Authorization": f"Bearer {log_token}"},
+            timeout=10,
+        )
+        if not log_resp.ok:
+            return None
+
+        lines = [l.strip() for l in log_resp.text.splitlines() if l.strip()]
+        error_lines = [
+            l for l in lines
+            if any(kw in l.lower() for kw in ("error", "exception", "fail", "fatal"))
+        ]
+        candidates = error_lines if error_lines else lines[-5:]
+        return " | ".join(candidates[:5]) if candidates else None
+    except Exception as e:
+        logger.debug(f"_fetch_execution_logs failed for {execution_name}: {e}")
+        return None
+
+
 def check_job_health(resource_id: str, workspace_id: str) -> tuple[dict, list]:
     """Returns (health_status, error_rows) for a Container App Job.
 
@@ -231,6 +277,7 @@ def check_job_health(resource_id: str, workspace_id: str) -> tuple[dict, list]:
         executions = resp.json().get("value", [])
         if executions:
             latest = executions[0]
+            execution_name = latest.get("name", "")
             props = latest.get("properties", {})
             raw_status = props.get("status", "unknown")
             start_time = props.get("startTime", "")
@@ -240,11 +287,13 @@ def check_job_health(resource_id: str, workspace_id: str) -> tuple[dict, list]:
                 "last_run_status": raw_status,
             }
             if raw_status == "Failed":
+                job_name = resource_id.rstrip("/").split("/")[-1]
+                log_message = _fetch_execution_logs(token, resource_id, execution_name)
                 errors.append({
                     "timestamp": start_time,
-                    "service": resource_id.rstrip("/").split("/")[-1],
+                    "service": job_name,
                     "endpoint": "",
-                    "message": f"Job execution failed (status: {raw_status}). Check Log Analytics or Azure Portal for details.",
+                    "message": log_message or "Job execution failed — logs unavailable (container may have exited before log shipping completed)",
                 })
     except Exception as e:
         logger.error(f"Job execution check failed for {resource_id}: {e}")
