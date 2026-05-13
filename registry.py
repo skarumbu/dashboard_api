@@ -83,7 +83,7 @@ def upsert_app(data: dict, added_by: str = "") -> dict:
     return _entity_to_dict(entity)
 
 
-UPDATABLE_FIELDS = {"health_url", "log_workspace_id", "type", "enabled"}
+UPDATABLE_FIELDS = {"health_url", "log_workspace_id", "type", "enabled", "github_repo"}
 
 
 def update_app(name: str, updates: dict) -> dict | None:
@@ -128,6 +128,7 @@ def _entity_to_dict(e) -> dict:
         "resource_id": e.get("resource_id", ""),
         "health_url": e.get("health_url", ""),
         "log_workspace_id": e.get("log_workspace_id", ""),
+        "github_repo": e.get("github_repo", ""),
         "enabled": e.get("enabled", True),
         "added_by": e.get("added_by", ""),
         "added_at": e.get("added_at", ""),

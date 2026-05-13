@@ -11,6 +11,7 @@ from auth import require_auth, get_user_token
 from registry import list_apps, upsert_app, update_app, delete_app
 from discovery import discover_resources
 from health_checks import check_app_health
+from github_checks import fetch_github_run
 from azure_metadata import get_subscription_id, get_resource_group
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
@@ -94,17 +95,24 @@ def DashboardGetter(req: func.HttpRequest) -> func.HttpResponse:
         return _unauthorized()
 
     apps = list_apps()
+    enabled_apps = [a for a in apps if a.get("enabled", True)]
 
     health_by_service: dict = {}
     metrics_by_service: dict = {}
     all_errors: list = []
+    github_actions_by_service: dict = {}
 
     def _fetch(app_config: dict):
         return app_config["name"], check_app_health(app_config)
 
     with ThreadPoolExecutor(max_workers=8) as executor:
-        futures = {executor.submit(_fetch, a): a for a in apps if a.get("enabled", True)}
+        futures = {executor.submit(_fetch, a): a for a in enabled_apps}
         cost_future = executor.submit(_get_cost)
+        github_futures = {
+            executor.submit(fetch_github_run, a["github_repo"]): a["name"]
+            for a in enabled_apps
+            if a.get("github_repo")
+        }
 
         for future in as_completed(futures):
             name, (h, metrics, errors) = future.result()
@@ -116,6 +124,10 @@ def DashboardGetter(req: func.HttpRequest) -> func.HttpResponse:
 
         cost = cost_future.result()
 
+        for future in as_completed(github_futures):
+            svc_name = github_futures[future]
+            github_actions_by_service[svc_name] = future.result()
+
     all_errors.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
 
     payload = {
@@ -123,6 +135,7 @@ def DashboardGetter(req: func.HttpRequest) -> func.HttpResponse:
         "metrics": metrics_by_service,
         "errors": all_errors[:50],
         "cost": cost,
+        "github_actions": github_actions_by_service,
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "note": "Log Analytics data has ~5 min ingestion delay",
     }

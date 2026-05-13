@@ -29,6 +29,7 @@ There is no test suite or linter configured.
 - `registry.py` — CRUD for the `registeredapps` Table Storage table (which apps to monitor)
 - `discovery.py` — Azure Resource Graph queries using On-Behalf-Of (OBO) credential
 - `health_checks.py` — parameterized health checks and Log Analytics / Table Storage queries
+- `github_checks.py` — GitHub Actions API fetch (`fetch_github_run`); returns latest run status + failed job names
 
 **Authentication:** Azure Functions App Service Authentication (EasyAuth) validates tokens before requests reach Python code. EasyAuth injects `X-MS-CLIENT-PRINCIPAL` (user identity) and `X-MS-TOKEN-AAD-ACCESS-TOKEN` (user's ARM token). Only `/api/health` is anonymous; all other endpoints call `require_auth(req)`.
 
@@ -69,6 +70,9 @@ Valid types: `ContainerApp`, `FunctionApp`, `APIM`, `custom`
 - Azure Log Analytics (parameterized per app using `log_workspace_id`)
 - Azure Table Storage for `digits`-type apps (`DIGITS_METRICS_CONNECTION_STRING`)
 - Azure Cost Management API (1-hour module-level cache)
+- GitHub Actions API (latest workflow run per app that has `github_repo` set, using `GITHUB_TOKEN`)
+
+**`github_repo` field:** Each registered app can have an optional `github_repo` field (format: `owner/repo`). Set it via `PATCH /api/apps/{name}` with `{"github_repo": "skarumbu/my-api"}`. When set, `DashboardGetter` fetches the latest non-PR workflow run and includes it in the `github_actions` response key.
 
 **Error handling:** Each data fetcher degrades gracefully — missing config or failed requests return partial data rather than crashing the whole response.
 
@@ -79,6 +83,7 @@ Required at runtime (Azure Function App settings):
 - `DIGITS_METRICS_CONNECTION_STRING` — Table Storage for digits metrics
 - `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP` — Cost Management queries
 - `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` — OBO credential for ARM discovery
+- `GITHUB_TOKEN` — classic PAT or fine-grained token with `actions:read` on monitored repos; if unset, `github_actions` returns `{}` (graceful degradation)
 
 Required in GitHub Actions secrets for deployment:
 - `AZURE_CREDENTIALS`, `DASHBOARD_API_APP_NAME`, `MY_WEBSITE_DISPATCH_TOKEN`
