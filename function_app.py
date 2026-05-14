@@ -139,7 +139,9 @@ def DashboardGetter(req: func.HttpRequest) -> func.HttpResponse:
 
         for future in as_completed(github_futures):
             svc_name = github_futures[future]
-            github_actions_by_service[svc_name] = future.result()
+            result = future.result()
+            if result:  # skip empty dicts (no token, no runs, API error)
+                github_actions_by_service[svc_name] = result
 
     all_errors.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
 

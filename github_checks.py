@@ -28,7 +28,7 @@ def fetch_github_run(repo: str) -> dict:
         resp = requests.get(
             f"https://api.github.com/repos/{repo}/actions/runs",
             headers=headers,
-            params={"per_page": 5, "exclude_pull_requests": "true"},
+            params={"per_page": 10, "exclude_pull_requests": "true"},
             timeout=10,
         )
         if not resp.ok:
