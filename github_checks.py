@@ -39,13 +39,17 @@ def fetch_github_run(repo: str) -> dict:
         if not runs:
             return {}
 
-        run = runs[0]
+        # Prefer push/dispatch-triggered runs over scheduled or bot runs
+        _preferred_events = {"push", "workflow_dispatch", "release"}
+        run = next((r for r in runs if r.get("event") in _preferred_events), runs[0])
+
         result = {
             "repo": repo,
             "run_id": run["id"],
             "workflow_name": run["name"],
             "status": run["status"],        # queued | in_progress | completed
             "conclusion": run["conclusion"], # success | failure | cancelled | skipped | None
+            "event": run.get("event", ""),  # push | schedule | workflow_dispatch | ...
             "branch": run["head_branch"],
             "created_at": run["created_at"],
             "html_url": run["html_url"],

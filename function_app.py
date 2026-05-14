@@ -82,6 +82,19 @@ def _json_response(data: dict, status_code: int = 200) -> func.HttpResponse:
     )
 
 
+_CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Max-Age": "86400",
+}
+
+
+@app.route(route="{*path}", methods=["OPTIONS"])
+def cors_preflight(req: func.HttpRequest) -> func.HttpResponse:
+    return func.HttpResponse(status_code=204, headers=_CORS_HEADERS)
+
+
 @app.route(route="health", methods=["GET"])
 def health(req: func.HttpRequest) -> func.HttpResponse:
     return _json_response({"status": "ok"})
