@@ -85,12 +85,15 @@ ContainerAppConsoleLogs_CL
         error_rows = []
         if e_result.status == LogsQueryStatus.SUCCESS and e_result.tables:
             for row in e_result.tables[0].rows:
-                error_rows.append({
+                error_row = {
                     "timestamp": row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0]),
                     "service": service_name,
                     "endpoint": row[1],
                     "message": row[2],
-                })
+                    "error_type": row.get("Properties_error_type") or row.get("error_type"),
+                    "status": row.get("Properties_status") or row.get("status"),
+                }
+                error_rows.append({k: v for k, v in error_row.items() if v is not None})
 
         return metrics_rows, error_rows
     except Exception as e:
@@ -120,12 +123,15 @@ def query_digits_metrics() -> tuple[list, list]:
             by_endpoint[ep]["total_ms"] += float(row.get("duration_ms", 0))
             if row.get("status", 200) >= 500:
                 by_endpoint[ep]["errors_24h"] += 1
-                error_rows.append({
+                error_row = {
                     "timestamp": row.get("Timestamp", row.get("RowKey", "")).split("T")[0],
                     "service": "digits",
                     "endpoint": ep,
                     "message": row.get("error", ""),
-                })
+                    "error_type": row.get("Properties_error_type") or row.get("error_type"),
+                    "status": row.get("Properties_status") or row.get("status"),
+                }
+                error_rows.append({k: v for k, v in error_row.items() if v is not None})
 
         metrics_rows = []
         for ep, data in by_endpoint.items():
@@ -197,12 +203,15 @@ AppExceptions
         error_rows = []
         if e_result.status == LogsQueryStatus.SUCCESS and e_result.tables:
             for row in e_result.tables[0].rows:
-                error_rows.append({
+                error_row = {
                     "timestamp": row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0]),
                     "service": service_name,
                     "endpoint": row[1],
                     "message": row[2],
-                })
+                    "error_type": row.get("Properties_error_type") or row.get("error_type"),
+                    "status": row.get("Properties_status") or row.get("status"),
+                }
+                error_rows.append({k: v for k, v in error_row.items() if v is not None})
 
         return metrics_rows, error_rows
     except Exception as e:
@@ -315,12 +324,15 @@ ContainerAppConsoleLogs_CL
             result = client.query_workspace(workspace_id, errors_query, timespan=timedelta(days=30))
             if result.status == LogsQueryStatus.SUCCESS and result.tables:
                 for row in result.tables[0].rows:
-                    errors.append({
+                    error_row = {
                         "timestamp": row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0]),
                         "service": job_name,
                         "endpoint": row[1],
                         "message": row[2],
-                    })
+                        "error_type": row.get("Properties_error_type") or row.get("error_type"),
+                        "status": row.get("Properties_status") or row.get("status"),
+                    }
+                    errors.append({k: v for k, v in error_row.items() if v is not None})
         except Exception as e:
             logger.error(f"Job log query failed for {resource_id}: {e}")
 
