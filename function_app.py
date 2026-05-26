@@ -1,5 +1,4 @@
 import json
-import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
@@ -13,10 +12,11 @@ from discovery import discover_resources
 from health_checks import check_app_health
 from github_checks import fetch_github_run
 from azure_metadata import get_subscription_id, get_resource_group
+from shared_logging import get_logger, log_request
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
-logger = logging.getLogger("dashboard-api")
+logger = get_logger("dashboard-api")
 
 _cost_cache: dict = {}
 
@@ -91,16 +91,19 @@ _CORS_HEADERS = {
 
 
 @app.route(route="{*path}", methods=["OPTIONS"])
+@log_request(logger)
 def cors_preflight(req: func.HttpRequest) -> func.HttpResponse:
     return func.HttpResponse(status_code=204, headers=_CORS_HEADERS)
 
 
 @app.route(route="health", methods=["GET"])
+@log_request(logger)
 def health(req: func.HttpRequest) -> func.HttpResponse:
     return _json_response({"status": "ok"})
 
 
 @app.route(route="DashboardGetter", methods=["GET"])
+@log_request(logger)
 def DashboardGetter(req: func.HttpRequest) -> func.HttpResponse:
     try:
         require_auth(req)
@@ -158,6 +161,7 @@ def DashboardGetter(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @app.route(route="discover", methods=["GET"])
+@log_request(logger)
 def discover(req: func.HttpRequest) -> func.HttpResponse:
     try:
         _, email, _ = require_auth(req)
@@ -179,6 +183,7 @@ def discover(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @app.route(route="apps", methods=["GET"])
+@log_request(logger)
 def get_apps(req: func.HttpRequest) -> func.HttpResponse:
     try:
         require_auth(req)
@@ -189,6 +194,7 @@ def get_apps(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @app.route(route="apps", methods=["POST"])
+@log_request(logger)
 def register_app(req: func.HttpRequest) -> func.HttpResponse:
     try:
         _, email, _ = require_auth(req)
@@ -213,6 +219,7 @@ def register_app(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @app.route(route="apps/{name}", methods=["PATCH"])
+@log_request(logger)
 def patch_app(req: func.HttpRequest) -> func.HttpResponse:
     try:
         require_auth(req)
@@ -243,6 +250,7 @@ def patch_app(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @app.route(route="apps/{name}", methods=["DELETE"])
+@log_request(logger)
 def remove_app(req: func.HttpRequest) -> func.HttpResponse:
     try:
         require_auth(req)
