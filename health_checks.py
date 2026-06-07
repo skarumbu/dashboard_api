@@ -313,14 +313,21 @@ def check_job_health(resource_id: str, workspace_id: str) -> tuple[dict, list]:
             credential = ManagedIdentityCredential()
             client = LogsQueryClient(credential)
             job_name = resource_id.rstrip("/").split("/")[-1]
+            # Container App Jobs don't populate ContainerAppName_s — filter by Log_s content instead.
+            # Derive service name by stripping common env suffixes (e.g. ideas-bot-prod → ideas-bot).
+            service_name = job_name
+            for suffix in ("-prod", "-dev", "-staging", "-test"):
+                if job_name.endswith(suffix):
+                    service_name = job_name[: -len(suffix)]
+                    break
             errors_query = """
 ContainerAppConsoleLogs_CL
-| where ContainerAppName_s startswith "{job}"
+| where Log_s has "{service}"
 | where Log_s has_any ("error", "Error", "ERROR", "exception", "Exception", "failed", "Failed")
 | project timestamp = TimeGenerated, endpoint = "", message = Log_s
 | order by timestamp desc
 | limit 20
-""".format(job=job_name)
+""".format(service=service_name)
             result = client.query_workspace(workspace_id, errors_query, timespan=timedelta(days=30))
             if result.status == LogsQueryStatus.SUCCESS and result.tables:
                 for row in result.tables[0].rows:
