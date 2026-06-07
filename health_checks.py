@@ -153,7 +153,7 @@ def query_log_analytics_function_app(service_name: str, workspace_id: str, windo
     """Returns (metrics_rows, error_rows) for a Function App via AppRequests/AppExceptions tables.
 
     Requires the Function App to have Application Insights connected to the same workspace.
-    Cloud_RoleName must match the registered app name.
+    AppRoleName must match the registered app name.
     """
     if not workspace_id:
         return [], []
@@ -166,7 +166,7 @@ def query_log_analytics_function_app(service_name: str, workspace_id: str, windo
         metrics_query = """
 AppRequests
 | where TimeGenerated between (datetime({start}) .. datetime({end}))
-| where Cloud_RoleName =~ "{service}"
+| where AppRoleName =~ "{service}"
 | summarize
     request_count = count(),
     avg_latency_ms = round(avg(DurationMs), 1),
@@ -177,11 +177,11 @@ AppRequests
 
         errors_query = """
 AppExceptions
-| where Cloud_RoleName =~ "{service}"
+| where AppRoleName =~ "{service}"
 | project
     timestamp = TimeGenerated,
     endpoint = OperationName,
-    message = OuterMessage
+    message = InnermostMessage
 | order by timestamp desc
 | limit 20
 """.format(service=service_name)
