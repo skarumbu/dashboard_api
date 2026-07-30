@@ -74,3 +74,42 @@ def fetch_github_run(repo: str) -> dict:
     except Exception as exc:
         logger.error(f"fetch_github_run({repo}) failed: {exc}")
         return {}
+
+
+def fetch_open_prs(repo: str) -> list[dict]:
+    """Return the open pull requests for `repo` (format: owner/repo).
+
+    Returns an empty list if GITHUB_TOKEN is unset, the repo has no open PRs,
+    or any API error occurs — callers degrade gracefully.
+    """
+    if not GITHUB_TOKEN or not repo:
+        return []
+
+    headers = {**_HEADERS, "Authorization": f"Bearer {GITHUB_TOKEN}"}
+
+    try:
+        resp = requests.get(
+            f"https://api.github.com/repos/{repo}/pulls",
+            headers=headers,
+            params={"state": "open", "per_page": 20},
+            timeout=10,
+        )
+        if not resp.ok:
+            logger.warning(f"GitHub Pulls API {resp.status_code} for {repo}")
+            return []
+
+        return [
+            {
+                "number": pr["number"],
+                "title": pr["title"],
+                "author": pr["user"]["login"],
+                "draft": pr["draft"],
+                "created_at": pr["created_at"],
+                "html_url": pr["html_url"],
+            }
+            for pr in resp.json()
+        ]
+
+    except Exception as exc:
+        logger.error(f"fetch_open_prs({repo}) failed: {exc}")
+        return []
