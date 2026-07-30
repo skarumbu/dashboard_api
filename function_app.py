@@ -10,7 +10,7 @@ from auth import require_auth, get_user_token
 from registry import list_apps, upsert_app, update_app, delete_app
 from discovery import discover_resources
 from health_checks import check_app_health
-from github_checks import fetch_github_run
+from github_checks import fetch_github_run, fetch_open_prs
 from azure_metadata import get_subscription_id, get_resource_group
 from shared_logging import get_logger, log_request
 
@@ -117,6 +117,7 @@ def DashboardGetter(req: func.HttpRequest) -> func.HttpResponse:
     metrics_by_service: dict = {}
     all_errors: list = []
     github_actions_by_service: dict = {}
+    open_prs_by_service: dict = {}
 
     def _fetch(app_config: dict):
         return app_config["name"], check_app_health(app_config)
@@ -126,6 +127,11 @@ def DashboardGetter(req: func.HttpRequest) -> func.HttpResponse:
         cost_future = executor.submit(_get_cost)
         github_futures = {
             executor.submit(fetch_github_run, a["github_repo"]): a["name"]
+            for a in enabled_apps
+            if a.get("github_repo")
+        }
+        pr_futures = {
+            executor.submit(fetch_open_prs, a["github_repo"]): a["name"]
             for a in enabled_apps
             if a.get("github_repo")
         }
@@ -146,6 +152,12 @@ def DashboardGetter(req: func.HttpRequest) -> func.HttpResponse:
             if result:  # skip empty dicts (no token, no runs, API error)
                 github_actions_by_service[svc_name] = result
 
+        for future in as_completed(pr_futures):
+            svc_name = pr_futures[future]
+            result = future.result()
+            if result:  # skip empty lists (no token, no open PRs, API error)
+                open_prs_by_service[svc_name] = result
+
     all_errors.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
 
     payload = {
@@ -154,6 +166,7 @@ def DashboardGetter(req: func.HttpRequest) -> func.HttpResponse:
         "errors": all_errors[:50],
         "cost": cost,
         "github_actions": github_actions_by_service,
+        "open_prs": open_prs_by_service,
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "note": "Log Analytics data has ~5 min ingestion delay",
     }
