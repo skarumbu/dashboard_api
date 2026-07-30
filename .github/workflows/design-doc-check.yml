@@ -7,6 +7,13 @@ on:
 
 jobs:
   design-doc:
+    # Skip PRs opened by this automation itself (design-doc/*, wiki-update/*,
+    # or authored by github-actions[bot]) — otherwise each generated ADR PR
+    # re-triggers this workflow on itself, cascading indefinitely.
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      !startsWith(github.head_ref, 'design-doc/') &&
+      !startsWith(github.head_ref, 'wiki-update/')
     uses: skarumbu/my-website/.github/workflows/design-doc-check-reusable.yml@main
     with:
       repo_name: dashboard-api
