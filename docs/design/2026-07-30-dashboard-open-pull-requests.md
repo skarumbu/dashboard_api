@@ -22,5 +22,5 @@ The API will fetch and include open pull requests from GitHub repositories in th
 - Dependency on GitHub API availability and rate limits.  
 
 ## Relevant Code
-- [`function_app.py`](https://github.com/skarumbu/dashboard_api/blob/main/function_app.py)  
-- [`github_checks.py`](https://github.com/skarumbu/dashboard_api/blob/main/github_checks.py)
+- [`function_app.py`](https://github.com/skarumbu/dashboard_api/blob/master/function_app.py)  
+- [`github_checks.py`](https://github.com/skarumbu/dashboard_api/blob/master/github_checks.py)
