@@ -1,16 +1,15 @@
 # ADR: Dashboard Open Pull Requests
-**Date:** 2026-07-30  **Status:** Proposed  **PR:** [dashboard-api#2](https://github.com/skarumbu/dashboard_api/pull/2)
+**Date:** 2026-07-30  **Status:** Proposed  **PR:** [dashboard-api#3](https://github.com/skarumbu/dashboard_api/pull/3)
 
 ## Context
-The dashboard API lacked visibility into repository activity, specifically open pull requests, which are critical for tracking development progress. This feature introduces integration with the GitHub Pulls API to include open PRs in the API response, enhancing user insights into repository activity.
+The dashboard API lacked visibility into open pull requests, which are critical for tracking repository activity and development progress. This feature integrates the GitHub Pulls API to fetch and include open PR metadata (e.g., title, author, creation date) in the dashboard response, enhancing user insights.
 
 ## Decision
-The API will fetch and include open pull requests from GitHub repositories in the dashboard response. This decision leverages the GitHub Pulls API to provide key PR metadata (e.g., title, author, creation date) while ensuring graceful degradation in case of API errors or missing tokens.
+The API will fetch open pull requests from GitHub repositories and include them in the dashboard response. This approach ensures actionable insights for users while gracefully handling API errors or missing tokens to maintain reliability.
 
 ## Alternatives Considered
 - **Do nothing:** Rejected because users lack visibility into repository activity, reducing the dashboard's utility.
 - **Use a webhook-based approach:** Rejected due to increased complexity and maintenance overhead compared to polling the GitHub API.
-- **Limit PR metadata:** Rejected as it would reduce the feature's usefulness for users tracking PR details.
 
 ## Consequences
 **Positive:**  
@@ -22,5 +21,5 @@ The API will fetch and include open pull requests from GitHub repositories in th
 - Dependency on GitHub API availability and rate limits.  
 
 ## Relevant Code
-- [`function_app.py`](https://github.com/skarumbu/dashboard_api/blob/master/function_app.py)  
-- [`github_checks.py`](https://github.com/skarumbu/dashboard_api/blob/master/github_checks.py)
+- [`function_app.py`](https://github.com/skarumbu/dashboard_api/blob/main/function_app.py)  
+- [`github_checks.py`](https://github.com/skarumbu/dashboard_api/blob/main/github_checks.py)
