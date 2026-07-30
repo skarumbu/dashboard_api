@@ -8,6 +8,13 @@ on:
 
 jobs:
   wiki-update-pr:
+    # Skip PRs opened by this automation itself (design-doc/*, wiki-update/*,
+    # or authored by github-actions[bot]) — otherwise each generated PR
+    # re-triggers this workflow on itself, cascading indefinitely.
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      !startsWith(github.head_ref, 'design-doc/') &&
+      !startsWith(github.head_ref, 'wiki-update/')
     permissions:
       pull-requests: write
     uses: skarumbu/my-website/.github/workflows/wiki-update-pr-reusable.yml@main
