@@ -1,11 +1,11 @@
 # ADR: Dashboard Open Pull Requests
-**Date:** 2026-07-30  **Status:** Proposed  **PR:** [dashboard-api#3](https://github.com/skarumbu/dashboard_api/pull/3)
+**Date:** 2026-07-30  **Status:** Proposed  **PR:** [dashboard-api#4](https://github.com/skarumbu/dashboard_api/pull/4)
 
 ## Context
-The dashboard API lacked visibility into open pull requests, which are critical for tracking repository activity and development progress. This feature integrates the GitHub Pulls API to fetch and include open PR metadata (e.g., title, author, creation date) in the dashboard response, enhancing user insights.
+The dashboard API lacked visibility into open pull requests, limiting user insights into repository activity and development progress. This change integrates the GitHub Pulls API to fetch and include open PR metadata in the dashboard response, enhancing transparency and usability.
 
 ## Decision
-The API will fetch open pull requests from GitHub repositories and include them in the dashboard response. This approach ensures actionable insights for users while gracefully handling API errors or missing tokens to maintain reliability.
+The API will fetch open pull requests from GitHub repositories and include them in the dashboard response. This approach improves user visibility into repository activity while gracefully handling API errors or missing tokens to ensure reliability.
 
 ## Alternatives Considered
 - **Do nothing:** Rejected because users lack visibility into repository activity, reducing the dashboard's utility.
