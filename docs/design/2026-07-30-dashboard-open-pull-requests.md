@@ -1,5 +1,5 @@
 # ADR: Dashboard Open Pull Requests
-**Date:** 2026-07-30  **Status:** Proposed  **PR:** [dashboard-api#15](https://github.com/skarumbu/dashboard_api/pull/15)
+**Date:** 2026-07-30  **Status:** Proposed  **PR:** [dashboard-api#16](https://github.com/skarumbu/dashboard_api/pull/16)
 
 ## Context
 The dashboard API lacked visibility into open pull requests, limiting user insights into repository activity. This change integrates the GitHub Pulls API to fetch and display metadata for open PRs, enhancing transparency and usability while handling API errors gracefully.
